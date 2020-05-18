@@ -15,7 +15,7 @@ git clone this repo:
 #### Design primer using user prepared contig  
 
     genome quest -f contig.fasta -1 pair1.fq -2 pair2.fq  
-#### design primer and creating blobplot using user prepared contig  
+#### Design primer and creating blobplot using user prepared contig  
 
     genome quest -f contig.fasta -1 pair1.fq -2 pair2.fq -db uniprot_ref_proteomes.fasta -e 1e-25  
 
