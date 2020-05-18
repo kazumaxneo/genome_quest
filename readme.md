@@ -2,6 +2,16 @@
 ### genome_quest  
   
 Scripts for bacterial genome assembly and corresponding sanger sequeincing.  
+
+### Requirements
+
+You must have the following installed on your system to install use this cript:
+* spades<https://github.com/ablab/spades>
+* blobtools(https://github.com/DRL/blobtools)
+
+pandas
+pillow
+
 git clone this repo:
 
     git clone git@github.com:kazumaxneo/genome_quest.git
