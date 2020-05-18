@@ -32,8 +32,9 @@ Dependency
     git clone https://github.com/bioinfo-ut/primer3_masker 
     cd primer3_masker/src/ 
     make primer3_masker
+
+genome_quest
     
-    #genome_quest
     git clone git@github.com:kazumaxneo/genome_quest.git
     cd genome_quest
     perl genome_quest
