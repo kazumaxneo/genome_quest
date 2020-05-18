@@ -1,6 +1,3 @@
-
-### genome_quest  
-  
 Scripts for bacterial genome assembly and corresponding sanger sequeincing.  
 
 ### Requirements
