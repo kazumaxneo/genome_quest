@@ -6,11 +6,15 @@ Scripts for bacterial genome assembly and corresponding sanger sequeincing.
 ### Requirements
 
 You must have the following installed on your system to install use this cript:
-* spades<https://github.com/ablab/spades>
-* blobtools(https://github.com/DRL/blobtools)
+* spades (<https://github.com/ablab/spades>)
+* bbmap (<https://sourceforge.net/projects/bbmap/>)
+* primer3 (<https://github.com/primer3-org/primer3>)
+* primer3_masker (<https://github.com/bioinfo-ut/primer3_masker>)
+* Genome Tester4 (<https://github.com/bioinfo-ut/GenomeTester4>)
+* bwa (<https://github.com/lh3/bwa>)
+optional
+* blobtools (<https://github.com/DRL/blobtools>)
 
-pandas
-pillow
 
 git clone this repo:
 
