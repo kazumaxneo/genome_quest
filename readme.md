@@ -20,7 +20,7 @@ optional
 * blobtools (<https://github.com/DRL/blobtools>)
 
 
-### install
+### Install
 Dependency
 
     #spades, bbmap, primer3, seqkit, blobtools
@@ -44,7 +44,7 @@ genome_quest
     cd genome_quest
     perl genome_quest
 
-### docker
+### Docker
     
     git clone git@github.com:kazumaxneo/genome_quest.git
     cd genome_quest
@@ -53,7 +53,7 @@ genome_quest
     ./genome_quest
 
 
-### usage
+### Usage
 #### De novo assembly and design primer
 
     genome quest -1 pair1.fq -2 pair2.fq  
