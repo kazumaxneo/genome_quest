@@ -17,6 +17,5 @@ RUN rm Miniconda3-latest-Linux-x86_64.sh
 RUN export PATH=/home/Miniconda/bin:$PATH
 RUN /home/Miniconda/bin/conda install -c bioconda -y spades bbmap primer3 seqkit blobtools
 RUN git clone https://github.com/bioinfo-ut/GenomeTester4.git && cd GenomeTester4/src/ && make clean && make && export PATH=$PATH:$PWD
-CMD ["/bin/bash --login"]
 WORKDIR /data
 USER root
