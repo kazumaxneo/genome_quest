@@ -10,12 +10,27 @@ You must have the following installed on your system to use use this cript:
 * primer3_masker (<https://github.com/bioinfo-ut/primer3_masker>)
 * Genome Tester4 (<https://github.com/bioinfo-ut/GenomeTester4>)
 * bwa (<https://github.com/lh3/bwa>)  
+* seqkit (<https://github.com/shenwei356/seqkit>)
 optional
 * blobtools (<https://github.com/DRL/blobtools>)
 
 
 ### install
-git clone this repo:
+Dependency
+
+    #spades, bbmap, primer3, seqkit, blobtools
+    conda install -c bioconda -y spades bbmap primer3 seqkit blobtools
+    #Genome Tester4
+    git clone https://github.com/bioinfo-ut/GenomeTester4.git
+    cd GenomeTester4/src/
+    make clean
+    make 
+    #
+    git clone https://github.com/bioinfo-ut/primer3_masker 
+    cd primer3_masker/src/ 
+    make primer3_masker
+
+
 
     git clone git@github.com:kazumaxneo/genome_quest.git
     cd genome_quest
