@@ -2,7 +2,8 @@ Scripts for bacterial genome assembly and corresponding sanger sequeincing.
 
 ### Requirements
 
-You must have the following installed on your system to install use this cript:
+You must have the following installed on your system to use use this cript:
+* ubuntu
 * spades (<https://github.com/ablab/spades>)
 * bbmap (<https://sourceforge.net/projects/bbmap/>)
 * primer3 (<https://github.com/primer3-org/primer3>)
