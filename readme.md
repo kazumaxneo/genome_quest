@@ -24,8 +24,9 @@ Dependency
     git clone https://github.com/bioinfo-ut/GenomeTester4.git
     cd GenomeTester4/src/
     make clean
-    make 
-    #
+    make
+    export PATH=$PATH:$PWD
+    #primer3_masker 
     git clone https://github.com/bioinfo-ut/primer3_masker 
     cd primer3_masker/src/ 
     make primer3_masker
