@@ -4,6 +4,7 @@ Scripts for bacterial genome assembly and corresponding sanger sequeincing.
 
 You must have the following installed on your system to use use this cript:
 * ubuntu
+* perl and two libraries (Statistics-Lite and Statistics::Basic)
 * spades (<https://github.com/ablab/spades>)
 * bbmap (<https://sourceforge.net/projects/bbmap/>)
 * primer3 (<https://github.com/primer3-org/primer3>)
@@ -38,6 +39,14 @@ genome_quest
     git clone git@github.com:kazumaxneo/genome_quest.git
     cd genome_quest
     perl genome_quest
+
+### docker
+    
+    git clone git@github.com:kazumaxneo/genome_quest.git
+    cd genome_quest
+    docker build . -t genome_quest_docker
+    docker run -itv $PWD:/data/ genome_quest_docker
+    ./genome_quest
 
 
 ### usage
