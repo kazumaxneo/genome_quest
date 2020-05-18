@@ -1,4 +1,4 @@
-  
+    
 ### Scripts to deal with bacterial genome assembly and corresponding sanger sequeincing.  
 The assembly of bacterial genomes using short reads often results in fragmented assembly sequences. In order to construct full-length chromosome sequences from fragmented sequences, the contiguity between contigs must be determined by long load sequencing or PCR and corresponding Sanger sequencing. The former is more costly than the Illumina sequence, although the method is well established and there are several tools available. The latter is labor-intensive, and there are few tools to help with this labor-intensive task. This script: genome_quest automates this laborious and tedious process of designing primers. Combined with the excellent PRIMER3 software and associated tools, GENOME_QUEST can perform from de novo assembly and the design of an outward-facing primer at the end of a contig with just one command.
 
