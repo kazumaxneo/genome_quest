@@ -16,6 +16,7 @@ optional
 * blobtools (<https://github.com/DRL/blobtools>)
 
 
+### install
 git clone this repo:
 
     git clone git@github.com:kazumaxneo/genome_quest.git
@@ -23,6 +24,7 @@ git clone this repo:
     perl genome_quest
 
 
+### usage
 #### De novo assembly and design primer
 
     genome quest -1 pair1.fq -2 pair2.fq  
