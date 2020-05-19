@@ -59,7 +59,8 @@ genome_quest
     cd genome_quest
     docker build . -t genome_quest_docker
     docker run -itv $PWD:/data/ genome_quest_docker
-    ./genome_quest
+    . ~/.profile
+    genome_quest
 
 ### test run
     
