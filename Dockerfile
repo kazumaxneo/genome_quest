@@ -17,7 +17,7 @@ RUN bash Miniconda3-latest-Linux-x86_64.sh -b -p /home/Miniconda
 RUN rm Miniconda3-latest-Linux-x86_64.sh
 RUN echo 'export PATH=$PATH:/home/Miniconda/bin' >> ~/.profile
 RUN echo 'export PERL5LIB="$HOME/perl5/lib/perl5:$PERL5LIB"' >> ~/.profile
-RUN echo 'export PATH="$HOME/perl5/bin:$PATH"' >> ~/.profile && source ~/.profile
+RUN echo 'export PATH="$HOME/perl5/bin:$PATH"' >> ~/.profile
 RUN /home/Miniconda/bin/conda install -c bioconda -y spades bbmap primer3 seqkit blobtools
 RUN git clone https://github.com/bioinfo-ut/GenomeTester4.git && cd GenomeTester4/src/ && make clean && make && echo 'export PATH=$PATH:'${PWD}'' >> ~/.profile
 RUN cpanm Statistics::Lite
