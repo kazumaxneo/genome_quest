@@ -37,6 +37,12 @@ Dependency
     git clone https://github.com/bioinfo-ut/primer3_masker 
     cd primer3_masker/src/ 
     make primer3_masker
+    
+    #perl librrary
+    apt install cpanminus
+    export PATH=$PATH:/home/Miniconda/bin
+    PERL5LIB="$HOME/perl5/lib/perl5:$PERL5LIB"
+    
 
 genome_quest
     
