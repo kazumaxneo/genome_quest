@@ -52,6 +52,10 @@ genome_quest
     docker run -itv $PWD:/data/ genome_quest_docker
     ./genome_quest
 
+### test run
+    
+    cd test_data/
+    genome_quest -1 paired_1.fq.gz -2 paired_2.fq.gz
 
 ### Usage
 #### De novo assembly and design primer
