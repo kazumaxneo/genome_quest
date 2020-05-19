@@ -42,6 +42,9 @@ Dependency
     apt install cpanminus
     export PATH=$PATH:/home/Miniconda/bin
     PERL5LIB="$HOME/perl5/lib/perl5:$PERL5LIB"
+    cpanm Statistics::Lite
+    cpanm Statistics::Basic
+    
     
 
 genome_quest
