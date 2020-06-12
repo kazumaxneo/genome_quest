@@ -70,12 +70,12 @@ genome_quest
 ### Usage
 #### De novo assembly and design primer
 
-    genome quest -1 pair1.fq -2 pair2.fq  
+    genome quest -1 pair1.fq -2 pair2.fq -primer yes  
 #### Design primer using user prepared contig  
 
-    genome quest -f contig.fasta -1 pair1.fq -2 pair2.fq  
-#### Design primer and creating blobplot using user prepared contig  
+    genome quest -f contig.fasta -1 pair1.fq -2 pair2.fq -primer yes 
+#### Creating blobplot using user prepared contig
 
-    genome quest -f contig.fasta -1 pair1.fq -2 pair2.fq -db uniprot_ref_proteomes.fasta -e 1e-25  
+    genome quest -f contig.fasta -1 pair1.fq -2 pair2.fq -db uniprot_ref_proteomes.fasta -e 1e-25 -primer no 
 
 
