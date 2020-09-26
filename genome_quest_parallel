@@ -1,0 +1,411 @@
+#!/usr/bin/perl
+use strict;
+use Getopt::Long qw(:config posix_default no_ignore_case gnu_compat);
+use Statistics::Lite qw(mean);
+use Statistics::Basic qw(:all); #cpanm Statistics::Basic で導入しておく必要あり
+#version history=============================================================================
+#v0.1 contig両末端の末端2000bpからprimer作成、リピートマスクのdefaultは16
+#v0.2 カバレッジ中央値をとるカラムを間違えていたので修正(column9:Median_foldから取る)。top10lengthからのみ集めるように修正。末端抽出サイズを選択するフラグ追加。
+#0.3 カバレッジ中央値を10000bp以上のcontigからとり、それらからSDx3（99%正確）を計算し、ばらつきを求める。SDx3範囲内のcontigのみprimerを設計する。SDを使うため、カバレッジ中央値はカバレッジ平均値に変更。
+#0.4 primerがないcontigでprimer名がずれる問題を修正。$minsize以上で異常なカバレッジのcontig名を別出力するよう修正
+#0.5 平均カバレッジ、残す最大カバレッジ、最小カバレッジのオプション指定に対応
+#0.6 blobtoolsでのplotに対応(blobtools、numpy、matplotlib、samtools、sminimap2、diamond,bwaをインストール)
+#0.61 diamond検索クエリ配列の最小サイズフラグを設定。それ以下は検索しない
+#0.63 taxonkitサブルーチン&taxidを導入。contigにクエリ情報を追加（blobtools実行時のみ）。taxonkitはdatabaseファイルもいるので準備を忘れないこと(cp names.dmp nodes.dmp $HOME/.taxonkit/)
+#0.7 taxidチェックをindex検索と並列化で高速化
+#dependency==================================================================================
+##primer3(primer creation)
+##primer3_masker(repeat mask)
+##Genome Tester4(k-mer count)
+##bbmap(merge pair reads)
+##blobtools(contig plot)
+##bwa(mapping for blobtools)
+#parameters===================================================================================
+my $contig = "";
+my $kmer = "list";
+my $mask = "masked.fa";
+my $fastq1 = "";
+my $fastq2 = "";
+my $minsize = "2000";
+my $thread = "24";
+my $kmersize = "16";
+my $end = "1000";
+my $select1 = "27,47,65,91,107,115,127";
+my $select2 = "27,47,63,77,89,99,107,115,121,127,141,155,171,191,205";
+my $meancov = "";
+my $maximumcov = "";
+my $minimumcov = "";
+my $diamonddb = "";
+my $evalue = "1e-100";
+my $taxiddb = "/root/uniprot_ref_proteomes.taxids";
+my $contiglimit = 500;
+my $mapper = "minimap2";
+my $primerrun = "no";
+my $div = "12";
+
+#option=======================================================================================
+GetOptions('f=s' => \$contig,'1=s' => \$fastq1,'2=s' => \$fastq2,'k=i' => \$kmersize,'l=i' => \$end,'mc=i' => \$meancov,'minc=i' => \$minimumcov,'maxc=i' => \$maximumcov,'db=s' => \$diamonddb,'e=s' => \$evalue,'taxdb=s' => \$taxiddb,'t=i' => \$thread,'cl=i' => \$contiglimit,'map=s' => \$mapper,'primer=s' => \$primerrun,'d=i' => \$div);
+#title========================================================================================
+print "=============================================================================\n";
+print "#genome quest version0.2\t2018 11 13\n";
+print "Contact\: Kazuma Uesaka \<kazumaxneo\@gmail.com\>\n\n";
+print "Usage\: genome quest \[options\]\n";
+print "Options\:\n";
+print "\t-f\tassembly fasta\n";
+print "\t-1\tpaired read 1\n";
+print "\t-2\tpaired read 2\n";
+print "\t-i\tkmersize \(default 16\)\n";
+print "\t-t\tthread number \(default 24\)\n";
+print "\t-l\textraction size from the end of contig \(default 1000\)\n";
+print "\t-d\t parallel thread number \(default 12\)\n";
+print "\t-mc\tmean coverage \(default \"\"\)\n";
+print "\t-maxc\tmaximum coverage to keep \(default \"\"\)\n";
+print "\t-minc\tminimum coverage to keep \(default \"\"\)\n";
+print "\t-primer\tprimer creation \(yes\|no\)\(default no\)\n";
+print "\t-map\tmapping tool for blobtools coverage plot\(minimap2\|bwa\) \(default minimap2\)\n";
+print "\t-cl\tminimum contig length for diamond blastx search \(default 500\)\n";
+print "\t-e\tevalue threshould for blastx uisng diamond \(default 1e-100\)\n";
+print "\t-db\tpath of diamond protein database for blobtools plotting \(default \-\)\n";
+print "\t-taxdb\tNCBI taxonomy ID database file\(default \/root\/uniprot_ref_proteomes\.taxids\)\n\n\n";
+print "ex1\. de novo assembly and design primer\:\t\t\tgenome quest \-1 pair1\.fq \-2 pair2\.fq -primer yes\n";
+print "ex2\. design primer using user prepared contig\:\t\t\tgenome quest \-f contig\.fasta \-1 pair1\.fq \-2 pair2\.fq -primer yes\n";
+print "ex3\. blobplots using user prepared contig \(dont design primer\) \:\tgenome quest \-f contig\.fasta \-1 pair1\.fq \-2 pair2\.fq -db uniprot_ref_proteomes.fasta \-e 1e\-100\n\n";
+print "=============================================================================\n";
+
+#error
+die "\npaired-end fastq files are required !\n\n\n" if($fastq1 eq "");
+die "\npaired-end fastq files are required !\n\n\n" if($fastq2 eq "");
+#subroutine_part1==============================================================================
+&assembly if($contig eq "");
+system("cp spades_outdir/scaffolds.fasta .") if($contig eq "");
+$contig = "scaffolds.fasta" if($contig eq "");
+&blastx unless($diamonddb eq "");
+&blobtool unless($diamonddb eq "");
+&coverage;
+if($primerrun eq "no"){
+	system("mv diamond-out split blastx-out mapped.bam.cov mapping.stats temp2/");
+	exit;
+}
+#global process================================================================================
+open INPUT1, "<mapping.stats" or die "cant open mapping\.stats file!\n";
+
+my $i = 1;my @cov = "";my @size = "";my @gc = "";my $total = 0;my @medi = "";my $meanvalue = 0;my $standarddivision = 0;my $sd = 0;
+my $stats = <INPUT1>;
+while (my $stats = <INPUT1>) {
+	chomp($stats);
+	my @box1 = split(/\t/, $stats);
+	$cov[$i] = $box1[9];#column5 Covered_percent
+	$size[$i] = $box1[2];#column3 Length
+	
+	$gc[$i] = $box1[3];#column4 Ref_GC
+	push(@medi,$cov[$i]) if($size[$i] > 10000);#10000bp以上のcoverageについて計算
+	$i++;
+}
+$meanvalue = mean @medi; #median value
+
+$sd = stddev @medi;
+unless($meancov eq ""){ #平均coverage指定があるなら、それに置き換える
+	$meanvalue = $meancov;
+}
+$maximumcov = $meanvalue + ($sd * 3) if($maximumcov eq "");
+$minimumcov = $meanvalue - ($sd * 3) if($minimumcov eq "");
+
+open MED, ">mean";
+print MED "#meanvalue\tstandard_deviation\tmaximumcov\tminimumcov\n";
+print MED "$meanvalue\t$sd\t$maximumcov\t$minimumcov\n";
+#subroutine_part2=================================================================================================
+&taxid unless($diamonddb eq "");
+system("mkdir statistics");
+
+unless($primerrun eq "yes"){
+	system("mv mapping.stats statistics/");
+	system("mv mean statistics/");
+	exit;
+}
+if($primerrun eq "no"){
+	system("mv mapping.stats mean/ statistics");
+	system("mv mean statistics/");
+	exit;
+}
+
+system("mkdir temp");
+#subroutine_part3=================================================================================================
+&masking;
+&nnn;
+&extract;
+&design;
+&extract2;
+&cleanup;
+exit;
+
+#==================================================================================================================
+#===============================================subroutine=========================================================
+sub assembly {
+	system("bbmerge.sh in1=$fastq1 in2=$fastq2 out=merged.fq");
+	system("sleep 5s");
+	system("spades.py -k $select2 --careful -t $thread -o spades_outdir -1 $fastq1 -2 $fastq2 --merged merged.fq");
+}
+
+#==================================================================================================================
+sub coverage {
+	print "bbmap coverage\n";
+	system("bbmap.sh ref=$contig nodisk in1=$fastq1 in2=$fastq2 covstats=mapping.stats");
+	system("sleep 3s");
+}
+#==================================================================================================================
+sub blobtool {
+	print "blobtools coverage plot\n";
+	system("mkdir blobtools");
+	system("sleep 2s");
+	
+	if ($mapper eq "bwa"){
+		system("bwa index -a is $contig");
+		system("bwa mem -t $thread $contig $fastq1 $fastq2 | samtools sort -O BAM -@ 6 - > blobtools/mapped.bam");
+		system("rm mapped.sam \*.amb \*.bwt \*.ann \*amb \*.pac \*.sa");
+	}elsif($mapper eq "minimap2"){
+		system("minimap2 -ax sr -t $thread $contig $fastq1 $fastq2 | samtools sort -O BAM -@ 6 - > blobtools/mapped.bam");
+	}
+	system("samtools index -@ 4 blobtools/mapped.bam");
+	system("sleep 2s");
+	system("blobtools create -i $contig -b blobtools/mapped.bam -t blastx-out");
+	system("sleep 2s");
+	system("blobtools plot -i blobDB.json");
+	system("mv blob* blobtools/");
+	
+	
+}
+
+#==================================================================================================================
+sub masking {
+	system("glistmaker $contig -w $kmersize -c 2 -o $kmer");
+	system("sleep 3s");
+
+	system("primer3_masker -a 2 -l list_${kmersize}.list $contig |fold -w 80 > $mask");
+}
+
+#==================================================================================================================
+sub nnn {
+	#1 NNNに置換、1配列1行ずつに変換
+	open INPUT1, "<masked.fa" or die "cant open input1 file!\n";
+	open OUT1, ">NNN_masked.fa";
+	my $count = 1;
+	my @right = ();my @left = ();my $i = 0;
+	while (my $line = <INPUT1>) {
+		chomp($line);
+		if($line =~ "\>"){#if開始
+			print OUT1 "\n$line\n" unless($count == 1);
+			print OUT1 "$line\n" if($count == 1);
+			$count++;
+		}else{
+			$line =~ s/[atgc]/N/g;
+			print OUT1 "$line";
+		}
+	}
+}
+
+#==================================================================================================================
+sub extract {
+#2 2000bp以下の配列を除外。それからcontig両末端1000bpずつを抽出。末端127merは除きその内側873bpずつだけ保存。
+	open INPUT2, "<NNN_masked.fa" or die "cant open input2 file!\n";
+	open OUT2, ">NNN_masked_border1000bps.fa";
+	open ABNORMAL, ">abnormal.txt";
+	print ABNORMAL "name\tcoverage\n";
+	my @right = ();my @left = ();my $i = 0;
+	my $substract = $end - 127;
+	while (my $line = <INPUT2>) {
+		$i++;
+		chomp($line);
+		if($line =~ "\>"){#if開始
+		my $line2 = <INPUT2>;#次の行を読み込み
+		chomp($line2);
+		print 
+		next if($size[$i] <= $minsize);
+		print ABNORMAL "$line\t$cov[$i]\n" unless($cov[$i] < $maximumcov && $cov[$i] > $minimumcov);
+		next unless($cov[$i] < $maximumcov && $cov[$i] > $minimumcov);
+		my $left = substr($line2,0,$end);#先頭-1000文字を切り出す
+		my $left2 = substr($left,-$substract);#先頭127文字を捨てる
+		my $right = substr($line2,-$end);#最後の1000文字目から最後までの文字列を切り出す
+		my $right2 = substr($right,0,$substract);#先頭873文字を切り出す
+		print OUT2 "$line";
+		print OUT2 "L\n$left2\n";
+		print OUT2 "$line\R\n$right2\n";
+		}#if終了
+	}
+}
+
+#==================================================================================================================
+sub design {
+	#3 primerデザイン
+	system("mkdir designed_primer");
+	open INPUT3, "<NNN_masked_border1000bps.fa" or die "cant open input3 file!\n";
+	open OUT3, ">list";
+	my $count = 1;
+
+	while (my $headerF = <INPUT3>) {
+		chomp($headerF);
+		if($headerF =~ "\>"){#if開始
+			my @number = split(/\_/, $headerF);
+		 	print "Primer of contig $number[1] is being created now.\n";
+		 	my $aaa = $number[1];
+		 	my $seqF = <INPUT3>;#2行目を読み込み
+		 	my $headerR = <INPUT3>;#3行目を読み込み
+		 	my $seqR = <INPUT3>;#4行目を読み込み
+		 	chomp($seqF);chomp($headerR);chomp($seqR);
+		 	open LEFT, ">configL";#1つ前のループのconfigLを消す
+		 	open RIGHT, ">configR";#1つ前のループのconfigRを消す
+	
+print LEFT << "EOF";
+SEQUENCE_ID=example
+SEQUENCE_TEMPLATE=$seqF
+PRIMER_TASK=pick_right_only
+PRIMER_PICK_LEFT_PRIMER=0
+PRIMER_PICK_INTERNAL_OLIGO=0
+PRIMER_PICK_RIGHT_PRIMER=1
+PRIMER_OPT_SIZE=26
+PRIMER_MIN_SIZE=22
+PRIMER_MAX_SIZE=30
+PRIMER_PRODUCT_SIZE_RANGE=75-150
+PRIMER_EXPLAIN_FLAG=1
+PRIMER_NUM_RETURN=1
+PRIMER_MAX_GC=60
+PRIMER_MAX_END_GC=3
+PRIMER_MIN_TM=55
+PRIMER_OPT_TM=60
+PRIMER_MAX_TM=63
+PRIMER_MUST_MATCH_THREE_PRIME=nnnns
+PRIMER_MUST_MATCH_FIVE_PRIME=wnnnn
+=
+EOF
+			system("sleep 0.1s");
+			system("primer3_core configL > designed_primer/primer${number[1]}L");
+			print OUT3 "primer${number[1]}L\n";
+			
+print RIGHT << "EOF";
+SEQUENCE_ID=example
+SEQUENCE_TEMPLATE=$seqR
+PRIMER_TASK=pick_left_only
+PRIMER_PICK_LEFT_PRIMER=1
+PRIMER_PICK_INTERNAL_OLIGO=0
+PRIMER_PICK_RIGHT_PRIMER=0
+PRIMER_OPT_SIZE=26
+PRIMER_MIN_SIZE=22
+PRIMER_MAX_SIZE=30
+PRIMER_PRODUCT_SIZE_RANGE=75-150
+PRIMER_EXPLAIN_FLAG=1
+PRIMER_NUM_RETURN=1
+PRIMER_MAX_GC=60
+PRIMER_MAX_END_GC=3
+PRIMER_MIN_TM=55
+PRIMER_OPT_TM=60
+PRIMER_MAX_TM=63
+PRIMER_MUST_MATCH_THREE_PRIME=nnnns
+PRIMER_MUST_MATCH_FIVE_PRIME=wnnnn
+=
+EOF
+			system("sleep 0.1s");
+			system("primer3_core configR > designed_primer/primer${number[1]}R");
+			print OUT3 "primer${number[1]}R\n";
+		}
+		$count++;
+	}
+}
+
+#==================================================================================================================
+sub extract2 {
+	#4 primerだけ抽出
+	open INPUT4, "<list" or die "cant open input4 file!\n";
+	open OUT4, ">primer_list";
+	open OUT5, ">primer.fasta";
+	while (my $list = <INPUT4>) {
+		chomp($list);
+		my $list2 = <INPUT4>;
+		$list =~ s/L//g;
+		$list =~ s/R//g;
+		my $name = $list;
+		$name =~ s/primer//g;
+		print OUT4 "\>$list\n";
+		open INPUT5L, "<designed_primer/primer${name}L" or die "cant open INPUT5L file!\n";
+		while (my $line5 = <INPUT5L>) {
+			chomp($line5);
+			my @array = split(/\=/, $line5);
+			print OUT4 "$line5\n" if($array[0] eq "PRIMER_RIGHT_0_SEQUENCE");
+			print OUT5 ">${list}L\n$array[1]\n" if($array[0] eq "PRIMER_RIGHT_0_SEQUENCE");
+		}
+		open INPUT5R, "<designed_primer/primer${name}R" or die "cant open INPUT5R file!\n";
+		while (my $line5 = <INPUT5R>) {
+			chomp($line5);
+			my @array = split(/\=/, $line5);
+			print OUT4 "$line5\n" if($array[0] eq "PRIMER_LEFT_0_SEQUENCE");
+			print OUT5 ">${list}R\n$array[1]\n" if($array[0] eq "PRIMER_LEFT_0_SEQUENCE");
+		}
+		
+	}
+	system("rm configL configR list NNN_masked.fa");
+}
+#==================================================================================================================
+sub cleanup {
+	system("mkdir primers");
+	system("sleep 3s");
+	system("mv list_16.list masked.fa NNN_masked_border1000bps.fa designed_primer temp/");
+	system("mv primer_list primer.fasta designed_primer primers/");
+	system("mv mean mapping.stats blast-out abnormal.txt statistics/");
+}
+#==================================================================================================================
+sub blastx {
+	#unipprotデータベースとproteome_taxidはユーザがダウンロードして準備する必要がある。
+	die "\npaired-end fastq files are required !\n\n\n" if($fastq1 eq "");
+	print "blastx to database using diamond\n";
+	system("seqkit seq -m $contiglimit $contig > seq");
+	system("sleep 3s");
+	system("mkdir temp2");
+	system("diamond blastx --query seq --db $diamonddb --outfmt 6 --max-target-seqs 1 --evalue $evalue > diamond-out");
+	system("rm seq");
+	system("wc -l diamond-out |cut -f 1 -d \" \" > split");
+	open INPUT6, "<split" or die "cant open split file!\n";
+	my $splitvalue = <INPUT6>;
+	my $splitnumber = int($splitvalue / $div);
+	system("split -l $splitnumber diamond-out temp2/Split_");
+	print "tax check using parallel command\n";
+	system("ls temp2/Split_* |  parallel -j $div \'perl tax-check.pl -i {} -o {}output \' ");
+	system("cat temp2/*output > blastx-out");
+}
+#==================================================================================================================
+sub taxid {
+	system("cut -f 2 blastx-out > ids");
+	system("sleep 3s");
+	system("taxonkit lineage -j 8 -t ids > lineage");
+	system("sleep 3s");
+	system("paste blastx-out lineage > blast-out-lineage");
+	system("sleep 3s");
+	open BLASTRESULT, "<blast-out-lineage" or die "cant open blastx-out file!\n";
+	open STAT, ">contig_statistics" or die "cant write STAT file!\n";
+	open INPUTMAP, "<mapping.stats" or die "cant open mapping\.stats file!\n";
+
+	
+	my $bb = 0;my @blastname = "";my @lineagename = "";my @blasttaxid = "";
+	while (my $bline = <BLASTRESULT>) {
+		chomp($bline);
+		my @bbox = split(/\t/, $bline);
+		$blastname[$bb] = $bbox[0];
+		$lineagename[$bb] = $bbox[4];
+		$blasttaxid[$bb] = $bbox[5];
+		$bb++;
+	}
+	
+	my $ix = 1;my @mapname = "";
+	my $statsx = <INPUTMAP>;
+	while (my $statsx = <INPUTMAP>) {
+		chomp($statsx);
+		my @boxx = split(/\t/, $statsx);
+		$mapname[$i] = $boxx[0];#column0 name
+		$ix++;
+		my $ccc = 0;
+		foreach my $var(@blastname){
+			print STAT "$statsx\t$lineagename[$ccc]\t$blasttaxid[$ccc]\n" if($var eq $mapname[$i]);
+			$ccc++;
+		}
+	}
+	system("sleep 3s");
+	system("cp blast-out-lineage mapping.stats");
+	system("rm lineage ids");
+}
